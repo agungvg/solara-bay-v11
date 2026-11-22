@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solara Bay — Open-World Crime</title>
+<style>
+  :root { --panel: rgba(10,14,22,.82); --panel2: rgba(10,14,22,.68); --line: rgba(255,255,255,.14);
+    --yellow:#ffd21f; --teal:#2ee6c8; --pink:#ff2e88; --orange:#ff7a33; --red:#ff3b30; --green:#39d353; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#0a0e16; font-family: Arial, Helvetica, sans-serif; color:#fff; }
+  #scene { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  #hud { position:fixed; inset:0; pointer-events:none; font-size:14px; }
+  #hud.hidden, .hidden { display:none !important; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 10px;
+    box-shadow:0 2px 10px rgba(0,0,0,.45); }
+  .tag { display:inline-block; background:var(--yellow); color:#111; font-weight:900; font-size:11px;
+    padding:2px 6px; border-radius:3px; letter-spacing:.5px; }
+  .tag.pink { background:var(--pink); color:#fff; }
+  .tag.teal { background:var(--teal); color:#06231d; }
+  /* mission card */
+  #mission-card { position:absolute; top:12px; left:12px; width:340px; }
+  #mission-card h1 { margin:2px 0 4px; font-size:19px; letter-spacing:.4px; text-transform:uppercase; }
+  #mission-card h1 .sub { color:var(--yellow); font-size:13px; }
+  #mission-card .stagebar { height:7px; background:#ffffff22; border-radius:4px; overflow:hidden; margin:5px 0 3px; }
+  #mission-card .stagebar i { display:block; height:100%; background:linear-gradient(90deg,var(--teal),var(--yellow)); }
+  #mission-card .next { color:#bfe9ff; font-size:13px; }
+  #mission-card .next b { color:var(--yellow); }
+  #mission-timer { position:absolute; top:12px; left:364px; font-size:15px; font-weight:900; }
+  /* police panel */
+  #police-panel { position:absolute; top:118px; left:12px; width:300px; }
+  #police-panel h2 { margin:0 0 5px; font-size:13px; color:#ff5b5b; letter-spacing:1px; }
+  #police-panel h2 span { float:right; color:#fff; }
+  #police-panel table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  #police-panel td { padding:2px 0; }
+  #police-panel td.d { text-align:right; color:#9fe8ff; font-weight:700; }
+  #police-panel td.r { text-align:right; }
+  .role { font-size:10px; font-weight:900; padding:1px 5px; border-radius:3px; color:#fff; }
+  .role.ram { background:#e03131; } .role.flank { background:#1971c2; } .role.mark { background:#862e9c; }
+  .role.shore { background:#0b7285; } .role.spot { background:#e8590c; } .role.block { background:#f08c00; }
+  #police-panel .more { font-size:11px; color:#ffd21f; margin-top:3px; }
+  /* district + minimap */
+  #district-card { position:absolute; left:12px; bottom:158px; width:230px; }
+  #district-card h3 { margin:0; font-size:18px; color:var(--yellow); letter-spacing:.5px; text-transform:uppercase; }
+  #district-card .st { font-size:12px; color:#cfe3ff; }
+  #district-card .meter { height:6px; background:#ffffff22; border-radius:3px; overflow:hidden; margin-top:4px; }
+  #district-card .meter i { display:block; height:100%; background:var(--teal); }
+  #district-card .meter b { font-size:11px; }
+  #minimap-wrap { position:absolute; left:12px; bottom:12px; width:142px; height:142px; }
+  #minimap { width:142px; height:142px; border-radius:50%; border:3px solid rgba(255,255,255,.85);
+    box-shadow:0 0 0 3px rgba(0,0,0,.5), 0 4px 14px rgba(0,0,0,.5); display:block; background:#0d2233; }
+  #vitals { position:absolute; left:164px; bottom:14px; width:190px; }
+  #vitals .bar { height:9px; background:#ffffff22; border-radius:5px; overflow:hidden; margin:3px 0 6px; }
+  #vitals .bar i { display:block; height:100%; }
+  #vitals label { font-size:11px; font-weight:900; letter-spacing:1px; }
+  #vitals label span { float:right; }
+  /* top right */
+  #cash-block { position:absolute; top:12px; right:12px; text-align:right; }
+  #cash { font-size:34px; font-weight:900; color:var(--teal); text-shadow:0 2px 0 rgba(0,0,0,.6); }
+  #clock { font-size:15px; font-weight:900; color:#fff; text-shadow:0 1px 2px #000; }
+  #wanted { margin-top:2px; font-size:22px; letter-spacing:2px; color:#ffd21f; text-shadow:0 2px 0 #000; }
+  #wanted .off { color:rgba(255,255,255,.35); }
+  #insight { display:inline-block; background:var(--red); color:#fff; font-size:11px; font-weight:900;
+    padding:2px 7px; border-radius:3px; margin-top:3px; }
+  #rank-block { margin-top:6px; font-size:12px; font-weight:900; }
+  #rank-block .rp { height:6px; background:#ffffff2e; border-radius:3px; overflow:hidden; margin-top:3px; }
+  #rank-block .rp i { display:block; height:100%; background:var(--yellow); }
+  /* weapons + crew */
+  #weapons { position:absolute; top:208px; right:12px; display:flex; gap:6px; }
+  .wslot { width:58px; background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:5px 4px 4px;
+    text-align:center; font-size:10px; font-weight:900; }
+  .wslot.active { border-color:var(--yellow); box-shadow:0 0 0 2px rgba(255,210,31,.5); }
+  .wslot .n { float:left; color:var(--yellow); }
+  .wslot .ic { font-size:20px; display:block; margin:2px 0 1px; }
+  .wslot .ammo { color:#9fe8ff; font-size:11px; }
+  .wslot.locked { opacity:.55; }
+  #crew { position:absolute; top:280px; right:12px; width:230px; }
+  .crew-card { display:flex; gap:8px; align-items:center; background:var(--panel2); border:1px solid var(--line);
+    border-radius:7px; padding:6px 8px; margin-bottom:6px; }
+  .crew-card .av { width:30px; height:30px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:14px; color:#06231d; background:var(--teal); flex:none; }
+  .crew-card .av.b { background:var(--yellow); } .crew-card .av.c { background:var(--pink); color:#fff; }
+  .crew-card b { font-size:13px; display:block; letter-spacing:.4px; }
+  .crew-card span { font-size:11px; color:#bfe9ff; }
+  .crew-card .cd { margin-left:auto; font-size:12px; font-weight:900; color:var(--yellow); }
+  /* bottom right */
+  #speed-block { position:absolute; right:12px; bottom:12px; text-align:right; }
+  #speed { font-size:56px; font-weight:900; line-height:.9; text-shadow:0 3px 0 rgba(0,0,0,.55); }
+  #speed small { font-size:15px; color:#cfe3ff; }
+  #vehicle { color:var(--teal); font-weight:900; font-size:15px; text-shadow:0 1px 2px #000; }
+  #cond { font-size:12px; font-weight:900; }
+  #cond .bar { width:180px; height:7px; background:#ffffff2e; border-radius:4px; overflow:hidden; margin:4px 0 0 auto; }
+  #cond .bar i { display:block; height:100%; background:var(--orange); }
+  #radio-line { position:absolute; right:12px; bottom:150px; font-size:12px; color:#8ff5e2; font-weight:700;
+    text-shadow:0 1px 2px #000; }
+  /* dialogue */
+  #dialogue { position:absolute; left:50%; bottom:14px; transform:translateX(-50%); width:520px; display:flex; gap:10px;
+    align-items:flex-start; }
+  #dialogue .av { width:44px; height:44px; border-radius:8px; background:linear-gradient(135deg,#2ee6c8,#1971c2);
+    display:flex; align-items:center; justify-content:center; font-weight:900; font-size:17px; flex:none; }
+  #dialogue .who { color:var(--teal); font-weight:900; font-size:13px; }
+  #dialogue .line { font-size:14px; line-height:1.35; }
+  #hint { position:absolute; left:50%; bottom:118px; transform:translateX(-50%); background:var(--panel);
+    border:1px solid var(--line); border-radius:6px; padding:5px 12px; font-size:13px; font-weight:700; color:var(--yellow); }
+  #air-tag { position:absolute; top:172px; right:12px; color:var(--orange); font-weight:900; font-size:13px;
+    letter-spacing:1px; text-shadow:0 1px 2px #000; }
+  #objective-toast { position:absolute; top:44%; left:50%; transform:translate(-50%,-50%); text-align:center; }
+  #objective-toast .big { font-size:34px; font-weight:900; letter-spacing:2px; text-shadow:0 3px 0 #000; }
+  #objective-toast .sub { font-size:15px; color:var(--yellow); font-weight:900; text-shadow:0 2px 0 #000; }
+  /* start screen */
+  #start-screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, rgba(6,12,24,.25), rgba(6,12,24,.78)); pointer-events:auto; text-align:center; }
+  #start-screen h1 { font-size:64px; margin:0; letter-spacing:3px; text-shadow:0 4px 0 rgba(0,0,0,.6); }
+  #start-screen h1 span { color:var(--teal); }
+  #start-screen p { font-size:17px; color:#d7ecff; max-width:640px; }
+  #start-screen .keys { font-size:13px; color:#9fb8d8; margin:8px 0 18px; line-height:1.7; }
+  #start-screen button, .bigbtn { pointer-events:auto; cursor:pointer; background:var(--yellow); color:#111; border:0;
+    font-weight:900; font-size:16px; padding:12px 26px; border-radius:8px; letter-spacing:1px; margin:0 6px; }
+  #start-screen button.alt { background:#ffffff22; color:#fff; border:1px solid #ffffff55; }
+  /* meta screen */
+  #meta-screen { position:fixed; inset:0; background:linear-gradient(180deg,#0a1424f2,#081020f5); pointer-events:auto;
+    overflow:auto; padding:12px 26px 74px; }
+  #meta-screen h1 { margin:0 0 2px; font-size:26px; letter-spacing:1px; }
+  #meta-screen h1 span { color:var(--teal); }
+  #meta-screen .tabs { margin:10px 0 14px; font-size:13px; font-weight:900; letter-spacing:1px; color:#9fb8d8; }
+  #meta-screen .tabs b { color:var(--yellow); border-bottom:3px solid var(--yellow); padding-bottom:3px; margin-right:14px; }
+  #meta-screen .tabs span { margin-right:14px; }
+  .meta-grid { display:grid; grid-template-columns: 300px 1fr 300px; gap:12px; align-items:start; }
+  .meta-col h2 { font-size:14px; letter-spacing:1px; color:var(--yellow); margin:0 0 8px; }
+  .mrow { display:flex; justify-content:space-between; font-size:13px; padding:2px 0; border-bottom:1px solid #ffffff14; }
+  .mrow b { color:var(--teal); }
+  .pbar { height:8px; background:#ffffff1c; border-radius:4px; overflow:hidden; margin:1px 0 6px; }
+  .pbar i { display:block; height:100%; background:linear-gradient(90deg,var(--teal),var(--yellow)); }
+  .ring-wrap { display:flex; gap:14px; align-items:center; }
+  .ring-wrap .pct { font-size:30px; font-weight:900; color:var(--teal); }
+  .stars-row { font-size:12px; letter-spacing:1px; color:var(--yellow); white-space:nowrap; }
+  #city-map { width:100%; height:auto; background:#0d2233; border:1px solid var(--line); border-radius:10px; }
+  .shop-item { display:flex; justify-content:space-between; font-size:13px; padding:3px 0; border-bottom:1px solid #ffffff14; }
+  .shop-item .own { color:var(--green); font-weight:900; } .shop-item .lock { color:#ff9a9a; font-weight:900; }
+  .shop-item .price { color:var(--yellow); font-weight:900; }
+  #meta-screen .foot { position:fixed; left:0; right:0; bottom:0; padding:10px 26px; display:flex; gap:10px;
+    align-items:center; background:linear-gradient(180deg,transparent,#081020f2 30%); }
+  #meta-screen .foot .cash { font-size:22px; font-weight:900; color:var(--teal); margin-right:auto; }
+  #status { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="scene" aria-label="Solara Bay: open-world crime game"></canvas>
+<div id="hud">
+  <div id="mission-card" class="panel">
+    <span class="tag" id="mission-tag">MISSION 6</span> <span class="tag pink" id="mission-kind">ORU'S FALL</span>
+    <h1><span class="sub" id="mission-sub">WRECK THE REGENT</span></h1>
+    <div class="stagebar"><i id="stage-fill" style="width:75%"></i></div>
+    <div id="stage-label" style="font-size:12px;font-weight:900">STAGE 3/4</div>
+    <div class="next">NEXT&nbsp; <b id="mission-next">Vanish</b></div>
+  </div>
+  <div id="mission-timer" class="panel">⏱ <span id="timer-text">0:23</span></div>
+
+  <div id="police-panel" class="panel">
+    <h2>▲ KPD RESPONSE <span id="unit-count">6 UNITS</span></h2>
+    <table id="unit-table"></table>
+    <div class="more" id="unit-more">+1 more</div>
+  </div>
+
+  <div id="district-card" class="panel">
+    <h3 id="district-name">KUMALA STRAND</h3>
+    <div class="st" id="district-street">Strand Boulevard</div>
+    <div class="meter"><i id="district-meter" style="width:58%"></i></div>
+    <b id="district-standing" style="font-size:11px">NEUTRAL · 58</b>
+  </div>
+  <div id="minimap-wrap"><canvas id="minimap" width="284" height="284"></canvas></div>
+  <div id="vitals" class="panel">
+    <label>HEALTH <span id="health-num">72</span></label><div class="bar"><i id="health-bar" style="width:72%;background:#39d353"></i></div>
+    <label>ARMOUR <span id="armour-num">55</span></label><div class="bar"><i id="armour-bar" style="width:55%;background:#4dabf7"></i></div>
+  </div>
+
+  <div id="cash-block">
+    <div id="clock">12:00</div>
+    <div id="cash">$18,450</div>
+    <div id="wanted">★★★★<span class="off">★</span></div>
+    <div><span id="insight">IN SIGHT</span></div>
+    <div id="rank-block"><span class="tag teal">RANK 9</span> FIXER
+      <div class="rp"><i id="rp-fill" style="width:75%"></i></div>
+      <span style="font-size:11px;color:#cfe3ff">3,900 / 5,200 RP</span></div>
+  </div>
+  <div id="air-tag">✈ AIR UNIT DEPLOYED</div>
+
+  <div id="weapons"></div>
+  <div id="crew"></div>
+
+  <div id="radio-line">♪ OMBO 98.4 — Island Pop</div>
+  <div id="speed-block">
+    <div id="vehicle">RUKAN PELO GT</div>
+    <div id="cond">CONDITION <span id="cond-num">62% DENTED</span><div class="bar"><i id="cond-fill" style="width:62%"></i></div></div>
+    <div id="speed">111 <small>KM/H</small></div>
+  </div>
+
+  <div id="dialogue" class="panel"><div class="av">MK</div><div><div class="who">MIRA KESANG</div>
+    <div class="line" id="dialogue-line">He's making for Kumala Pier! Ram the Regent before it reaches the water!</div></div></div>
+  <div id="hint" class="hidden">HOLD W TO DRIVE · E ENTER / EXIT · F SHOOT · M MAP</div>
+  <div id="objective-toast" class="hidden"><div class="big" id="toast-big">MISSION COMPLETE</div><div class="sub" id="toast-sub">+$18,450</div></div>
+</div>
+
+<div id="start-screen">
+  <h1>SOLARA <span>BAY</span></h1>
+  <p>An open-world crime story on a sun-soaked coast. Steal cars, outrun the KPD, run eight story
+  jobs with Mira, Lio and Kiki — and own the bay, one getaway at a time.</p>
+  <div class="keys">W A S D drive / walk &nbsp;·&nbsp; E enter &amp; exit car &nbsp;·&nbsp; F shoot &nbsp;·&nbsp; 1–6 weapons<br>
+  M map &amp; stats &nbsp;·&nbsp; SPACE handbrake &nbsp;·&nbsp; SHIFT sprint &nbsp;·&nbsp; R restart mission</div>
+  <div>
+    <button id="btn-start">▶ START — FIRST LIGHT</button>
+    <button id="btn-continue" class="alt">CONTINUE</button>
+  </div>
+  <p style="font-size:12px;color:#7d94b5">Saves live in your browser · plays offline · no account needed</p>
+</div>
+
+<div id="meta-screen" class="hidden">
+  <h1>SOLARA BAY <span>· MAP / STATS</span></h1>
+  <div class="tabs"><b>MAP</b><span>STORY</span><span>STATS</span><span>CREW</span><span>SETTINGS</span><span>CONTROLS</span><span>SAVE</span></div>
+  <div class="meta-grid">
+    <div class="meta-col panel">
+      <h2>PROGRESS</h2>
+      <div class="ring-wrap">
+        <svg width="88" height="88" viewBox="0 0 110 110"><circle cx="55" cy="55" r="36" fill="none" stroke="#ffffff22" stroke-width="11"/>
+        <circle cx="55" cy="55" r="36" fill="none" stroke="#2ee6c8" stroke-width="11" stroke-linecap="round"
+          stroke-dasharray="149 226" transform="rotate(-90 55 55)"/><text x="55" y="62" text-anchor="middle" fill="#fff" font-size="18" font-weight="900">66.1%</text></svg>
+        <div><div class="pct">66.1%</div><div style="font-size:12px;color:#bfe9ff">COMPLETION</div>
+        <div class="stars-row">MISSION RATINGS<br>G ★ S ★ G ★ B ★ S</div></div>
+      </div>
+      <div id="progress-bars"></div>
+      <h2 style="margin-top:10px">CAREER</h2>
+      <div id="career-stats"></div>
+    </div>
+    <div class="meta-col">
+      <svg id="city-map" viewBox="0 0 640 420" role="img" aria-label="Map of Solara Bay"></svg>
+      <div class="panel" style="margin-top:10px;display:flex;gap:18px;font-size:12px">
+        <span>📍 <b style="color:#ffd21f">YOU</b> — Kumala Strand</span>
+        <span>◆ <b style="color:#2ee6c8">NEXT JOB</b> — Oru's Regent, the pier</span>
+        <span>— <b style="color:#ff5b5b">ROUTE</b> — Strand Blvd → Pier Rd</span>
+      </div>
+    </div>
+    <div class="meta-col panel">
+      <h2>WORKSHOP — LIO'S GARAGE</h2>
+      <div id="workshop-list"></div>
+      <h2 style="margin-top:12px">WEAPONS &amp; GEAR</h2>
+      <div id="gear-list"></div>
+      <h2 style="margin-top:12px">SAVE SLOTS</h2>
+      <div id="save-slots"></div>
+    </div>
+  </div>
+  <div class="foot">
+    <span class="cash" id="meta-cash">$21,340</span>
+    <span style="font-size:12px;color:#9fb8d8">8 missions · 7 districts · 3 crew · wanted record 4★</span>
+    <button class="bigbtn" id="btn-back">◀ BACK TO THE STREET</button>
+  </div>
+</div>
+
+<p id="status" role="status" aria-live="polite"></p>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
